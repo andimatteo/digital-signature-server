@@ -383,7 +383,7 @@ aes256gcm_decrypt(const byte_vec &ciphertext,
     plaintext.resize(plaintext_len);
 }
 
-void __attribute__((optimize("O0"))) 
+void 
 memzero(string &str)
 {
     if (str.empty())
@@ -391,7 +391,7 @@ memzero(string &str)
     fill(str.begin(), str.end(), 0);
 }
 
-void __attribute__((optimize("O0"))) 
+void 
 memzero(byte_vec &data)
 {   
     if (data.empty())
