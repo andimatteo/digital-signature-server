@@ -58,4 +58,7 @@ void aes256gcm_decrypt(const byte_vec &ciphertext,
                   const byte_vec &iv,
                   const byte_vec &tag,
                   byte_vec &plaintext);
+bool validate_username(const string &username);
+bool validate_password(const string &password);
+
 #endif

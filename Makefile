@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -Wall -Wextra -MMD -MP -g
+CFLAGS = -std=c++17 -Wall -Wextra -MMD -MP -g
 CPPFLAGS = -I./src/common -I./src/client -I./src/server
 LDFLAGS =
 LDLIBS = -lcrypto
@@ -56,5 +56,5 @@ $(CLIENT_BIN): $(COMMON_CLIENT_OBJ) $(CLIENT_OBJ) | $(OUT_DIR)
          $(CLIENT_OBJ:.o=.d) $(SERVER_OBJ:.o=.d)
 
 clean:
-	rm -rf $(OUT_DIR) $(BUILD_DIR)
+	rm -rf $(OUT_DIR) $(BUILD_DIR) data/server/keys/* data/server/credentials.txt
 

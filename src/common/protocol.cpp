@@ -395,6 +395,7 @@ init_secure_channel(int sockfd,
     my_dh_keypair = nullptr;
 
     // 6) Verify server's signature over (g^a || g^b)
+    // TODO: Why verify only at the end, shouldn't we do it sooner?
     byte_vec signed_data;
     signed_data.reserve(my_pub_dh_msg.size() + server_pub_dh_msg.size());
     signed_data.insert(signed_data.end(), my_pub_dh_msg.begin(),     my_pub_dh_msg.end());

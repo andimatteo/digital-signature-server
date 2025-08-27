@@ -16,7 +16,7 @@ struct header {
      *
      * bit 2:
      *  - 0: the reponse is successful
-     *  - 1: the reponse failed (the response can fail due
+     *  - 1: the reponse failed
      *
      * bits 1-0:
      *  - type of request made to the server

@@ -35,6 +35,7 @@ static const char *level_names[] = {
 /* logging function */
 void LOG(logLevel level, const char *format, ...)
 {
+    // TODO: fix encoding (strings passed as argument get printed with the wrong encoding)
     va_list args;
     va_start(args, format);
     time_t now = time(0);
@@ -399,6 +400,28 @@ memzero(byte_vec &data)
     fill(data.begin(), data.end(), 0);
 }
 
+bool
+validate_username(const string &username)
+{
+    if (username.empty() ||
+        username.length() > 32 ||
+        username.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") != string::npos)
+    {
+        return false;
+    }
+    
+    return true;
+}
 
-
-
+bool
+validate_password(const string &password)
+{
+    if (password.empty() ||
+        password.length() > 32 ||
+        password.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_:/\\@#-.,;'?!\"()[]{}&%$*+-<>") != string::npos)
+    {
+        return false;
+    }
+    
+    return true;
+}
