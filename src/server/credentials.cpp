@@ -62,7 +62,7 @@ save_credentials_internal()
         byte_to_hex(user.passwordSalt, salt_hex);
 
         file << username << "\t" << password_hash_hex << "\t" << salt_hex << "\t" << (user.firstLogin ? "true" : "false") << endl;
-        LOG(DEBUG, "User %s saved", username);
+        LOG(DEBUG, "User %s saved", username.c_str());
     }
 
     file.close();
@@ -122,7 +122,7 @@ add_user(const string user, string password, const bool firstLogin)
     memzero(password);
 
     allUsers[user] = {password_hash, password_salt, firstLogin, false};
-    LOG(INFO, "User %s added", user);
+    LOG(INFO, "User %s added", user.c_str());
 
     return true;
 }
@@ -134,7 +134,7 @@ login_user(const string &username, const string &password, bool &firstLogin)
 
     auto it = allUsers.find(username);
     if (it == allUsers.end()) {
-        LOG(INFO, "User %s not found", username);
+        LOG(INFO, "User %s not found", username.c_str());
         return false;
     }
     user& user = it->second;
@@ -149,7 +149,7 @@ login_user(const string &username, const string &password, bool &firstLogin)
     {
         if (user.loggedIn)
         {
-            LOG(INFO, "User %s already logged in", username);
+            LOG(INFO, "User %s already logged in", username.c_str());
             return false;
         }
 
@@ -183,7 +183,7 @@ change_password(const string &username, const string &newPassword)
 
     auto it = allUsers.find(username);
     if (it == allUsers.end()) {
-        LOG(INFO, "User %s not found", username);
+        LOG(INFO, "User %s not found", username.c_str());
         return false;
     }
     user& user = it->second;
@@ -242,17 +242,17 @@ load_credentials()
     while (getline(file, line)) {
         size_t pos1 = line.find('\t');
         if (pos1 == string::npos) {
-            LOG(WARN, "Invalid line in credentials file: %s", line);
+            LOG(WARN, "Invalid line in credentials file: %s", line.c_str());
             continue;
         }
         size_t pos2 = line.find('\t', pos1 + 1);
         if (pos2 == string::npos) {
-            LOG(WARN, "Invalid line in credentials file: %s", line);
+            LOG(WARN, "Invalid line in credentials file: %s", line.c_str());
             continue;
         }
         size_t pos3 = line.find('\t', pos2 + 1);
         if (pos3 == string::npos) {
-            LOG(WARN, "Invalid line in credentials file: %s", line);
+            LOG(WARN, "Invalid line in credentials file: %s", line.c_str());
             continue;
         }
         
@@ -270,7 +270,7 @@ load_credentials()
 
         allUsers[user] = {hash, salt, first_login, false};
 
-        LOG(INFO, "User %s loaded", user);
+        LOG(INFO, "User %s loaded", user.c_str());
     }
 
     file.close();
