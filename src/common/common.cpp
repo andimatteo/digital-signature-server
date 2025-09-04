@@ -36,6 +36,7 @@ static const char *level_names[] = {
 void LOG(logLevel level, const char *format, ...)
 {
     // TODO: fix encoding (strings passed as argument get printed with the wrong encoding)
+    // for now we pass a cstring everytime (convert to cstring with string.c_str()
     va_list args;
     va_start(args, format);
     time_t now = time(0);

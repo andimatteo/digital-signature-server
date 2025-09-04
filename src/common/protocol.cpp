@@ -4,25 +4,6 @@
 #include "header.h"
 using namespace std;
 
-/*
- * the communication protocol is the following:
- * 1. we send {type || len}_k encrypted header of fixed size (1 + 8) bytes
- * 2. we send {payload || padding}_k encrypted payload of variable size
- *
- * the main interface to send and receive a secure message is the following:
- * send_message(msg, int sockfd, byte_vec key, uint64_t counter)
- * where:
- *  - msg: is the payload to send (can be a string or a byte_vec)
- *  - sockf: is the communication socket
- *  - key: is the symmetric encryption key
- *  - counter: is the sequence number of the message (so that same messages will
- *    have different encodings)
- *
- * both send and receive are structured with the following abstraction layers:
- * 1. a function to send or receive all bytes (e.g. send_all)
- * 2. an encryption function for sending the message
- * 3. a simple interface function for sending data according to the protocol
- * */
 
 /* utility function */
 static inline 
@@ -93,7 +74,23 @@ static constexpr size_t PAD_BLOCK = 64;
 /* TODO: modificare le funzioni che vengono chiamate durante lo scambio di dati da client.cpp e server.cpp */
 /* NOTE: fare testing delle varie richieste (non viene realmente fatto qualcosa) */
 
-/* function for sending the header + variable size payload */
+/*
+ * the communication protocol is the following:
+ *  1. send header: (encrypt then authenticate)
+ *      - 1 type byte
+ *      - 8 len byte (len of padded payload)
+ *      - 8 IV bytes (++counter)
+ *      - then we pad this header (64 bytes)
+ *      - then we compute HMAC of the ciphertext (16 bytes)
+ *      - and then we send encrypted header and HMAC (64 + 16 bytes)
+ *  2. optionally send payload: (encrypt then authenticate)
+ *      - payload of variable size
+ *      - 8 IV bytes (++counter)
+ *      - pad (payload||IV) --> (len)
+ *      - encrypt (len)
+ *      - compute HMAC of ciphertext (len + 16 bytes)
+ *      - send encrypted payload and HMAC (len + 16 bytes)
+ * */
 static void 
 send_secure_record(int sockfd,
                    uint8_t type_byte,
@@ -101,11 +98,30 @@ send_secure_record(int sockfd,
                    const byte_vec &key,
                    uint64_t &counter)
 {
-    /* header plaintext */
-    header hdr{};
-    hdr.type   = type_byte;
-    hdr.length = static_cast<uint64_t>(payload.size());
-    byte_vec hdr_plain = hdr.serialize(); // 9 bytes
+    /* Calculate padded payload length (including IV) */
+    uint64_t payload_padded_len = 0;
+    if (!payload.empty()) {
+        size_t payload_with_iv_size = payload.size() + 8; // +8 for IV
+        size_t rem = payload_with_iv_size % PAD_BLOCK;
+        size_t pad = (rem == 0) ? PAD_BLOCK : (PAD_BLOCK - rem);
+        payload_padded_len = payload_with_iv_size + pad;
+    }
+    
+    /* header plaintext: type + length + IV */
+    byte_vec hdr_plain;
+    
+    // 1 byte type
+    hdr_plain.push_back(type_byte);
+    
+    // 8 bytes length (of padded payload)
+    byte_vec len_bytes(8, 0);
+    be64(len_bytes.data(), payload_padded_len);
+    hdr_plain.insert(hdr_plain.end(), len_bytes.begin(), len_bytes.end());
+    
+    // 8 bytes IV (++counter)
+    byte_vec iv_bytes(8, 0);
+    be64(iv_bytes.data(), ++counter);
+    hdr_plain.insert(hdr_plain.end(), iv_bytes.begin(), iv_bytes.end());
 
     /* PKCS#7 padding for header => 64B */
     byte_vec hdr_padded = hdr_plain;
@@ -115,40 +131,41 @@ send_secure_record(int sockfd,
         hdr_padded.insert(hdr_padded.end(), pad, (uint8_t)pad);
     }
 
-    /* header IV: ++counter */
-    byte_vec iv_h(12, 0);
-    be64(iv_h.data() + 4, ++counter);
-
     /* encrypt header (with padding) */
     byte_vec hdr_ct, hdr_tag;
-    aes256gcm_encrypt(hdr_padded, key, iv_h, hdr_ct, hdr_tag);
+    byte_vec iv_zero(12, 0); // Use zero IV since counter is in the plaintext
+    aes256gcm_encrypt(hdr_padded, key, iv_zero, hdr_ct, hdr_tag);
+    
     if (hdr_ct.size() != PAD_BLOCK) error("encrypted header length mismatch");
     
     /* send header and tag (fixed 64 + 16 = 80B) */
     if (!send_all(sockfd, hdr_ct.data(),  hdr_ct.size()))  error("send_all header ct failed");
     if (!send_all(sockfd, hdr_tag.data(), hdr_tag.size())) error("send_all header tag failed");
     
-    /* the payload is optional:
-     * the other peer knows that no payload will be sent
-     * for example createKeys and deleteKeys responses have no payload */
-    if (hdr.length) {
-        /* payload padding */
-        byte_vec padded = payload;
+    /* the payload is optional */
+    if (!payload.empty()) {
+        /* prepare payload with IV */
+        byte_vec payload_with_iv = payload;
+        
+        /* add IV (++counter) to payload */
+        byte_vec payload_iv(8, 0);
+        be64(payload_iv.data(), ++counter);
+        payload_with_iv.insert(payload_with_iv.end(), payload_iv.begin(), payload_iv.end());
+
+        /* pad (payload||IV) */
+        byte_vec padded = payload_with_iv;
         {
             size_t rem = padded.size() % PAD_BLOCK;
             size_t pad = (rem == 0) ? PAD_BLOCK : (PAD_BLOCK - rem);
             padded.insert(padded.end(), pad, (uint8_t)pad);
         }
 
-        /* payload IV: ++counter */
-        byte_vec iv_p(12, 0);
-        be64(iv_p.data() + 4, ++counter);
-
         /* encrypt payload */
         byte_vec ct, tag;
-        aes256gcm_encrypt(padded, key, iv_p, ct, tag);
+        byte_vec iv_zero(12, 0); // Zero IV as counter is in data
+        aes256gcm_encrypt(padded, key, iv_zero, ct, tag);
         
-        /* send payload and tag (payload_size + 16B) */
+        /* send payload and tag */
         if (!send_all(sockfd, ct.data(),  ct.size()))  error("send_all payload ct failed");
         if (!send_all(sockfd, tag.data(), tag.size())) error("send_all payload tag failed");
         
@@ -156,7 +173,7 @@ send_secure_record(int sockfd,
     }
 
     LOG(DEBUG, "Sent message: payload_size=%zu, counter=%llu",
-        hdr.length, (unsigned long long)counter);
+        (payload.empty() ? 0 : payload.size()), (unsigned long long)counter);
 
     memzero(hdr_padded);
 }
@@ -175,52 +192,68 @@ recv_secure_record(int sockfd,
     if (!recv_all(sockfd, hdr_ct.data(),  hdr_ct.size()))  return false;
     if (!recv_all(sockfd, hdr_tag.data(), hdr_tag.size())) return false;
 
-    /* IV header: ++counter */
-    byte_vec iv_h(12, 0);
-    be64(iv_h.data() + 4, ++counter);
-
     /* decrypt header */
+    byte_vec iv_zero(12, 0); // Use zero IV since counter is in the plaintext
     byte_vec hdr_padded;
-    aes256gcm_decrypt(hdr_ct, key, iv_h, hdr_tag, hdr_padded);
+    aes256gcm_decrypt(hdr_ct, key, iv_zero, hdr_tag, hdr_padded);
 
-    /* remove padding and get 1 + 8 B */
+    /* remove padding */
     if (hdr_padded.empty()) error("empty header padded");
     uint8_t hpad = hdr_padded.back();
     if (hpad == 0 || hpad > hdr_padded.size()) error("bad header padding");
     hdr_padded.resize(hdr_padded.size() - hpad);
 
-    if (hdr_padded.size() != 9) error("bad header length after unpad");
-
-    header hdr{};
-    if (!header::deserialize(hdr_padded, hdr)) error("header deserialize failed");
-    type_out = hdr.type;
+    // Header should have 1 byte type, 8 bytes length, 8 bytes IV
+    if (hdr_padded.size() != 17) error("bad header length after unpad");
+    
+    // Extract the type byte
+    type_out = hdr_padded[0];
+    
+    // Extract the length (padded payload length)
+    uint64_t payload_padded_len = 0;
+    for (int i = 0; i < 8; ++i) {
+        payload_padded_len = (payload_padded_len << 8) | hdr_padded[i + 1];
+    }
+    
+    // Extract and verify the counter
+    uint64_t recv_counter = 0;
+    for (int i = 0; i < 8; ++i) {
+        recv_counter = (recv_counter << 8) | hdr_padded[i + 9];
+    }
+    
+    if (recv_counter != ++counter) error("header counter mismatch");
 
     /* if the message has a payload then we receive it */
-    if (hdr.length) {
-        uint64_t L = hdr.length;
-        size_t padded_len = size_t(L % PAD_BLOCK == 0 ? L + PAD_BLOCK : L + (PAD_BLOCK - (L % PAD_BLOCK)));
-
+    if (payload_padded_len > 0) {
         /* receive payload and tag */
-        byte_vec ct(padded_len), tag(16);
+        byte_vec ct(payload_padded_len), tag(16);
         if (!recv_all(sockfd, ct.data(),  ct.size()))  return false;
         if (!recv_all(sockfd, tag.data(), tag.size())) return false;
 
-        /* payload IV: ++counter */
-        byte_vec iv_p(12, 0);
-        be64(iv_p.data() + 4, ++counter);
-
         /* decrypt payload */
+        byte_vec iv_zero(12, 0); // Zero IV as counter is in data
         byte_vec padded;
-        aes256gcm_decrypt(ct, key, iv_p, tag, padded);
+        aes256gcm_decrypt(ct, key, iv_zero, tag, padded);
 
         /* remove padding */
         if (padded.empty()) error("empty payload padded");
         uint8_t pad = padded.back();
         if (pad == 0 || pad > padded.size()) error("bad payload padding");
-        // NOTE: we should also check that pad last bytes are equal to pad
         padded.resize(padded.size() - pad);
 
-        if (padded.size() != hdr.length) error("length mismatch after unpad");
+        // Last 8 bytes should be the IV (counter), extract and verify
+        if (padded.size() < 8) error("payload too small to contain IV");
+        
+        // Extract counter from payload
+        uint64_t recv_payload_counter = 0;
+        for (int i = 0; i < 8; ++i) {
+            recv_payload_counter = (recv_payload_counter << 8) | padded[padded.size() - 8 + i];
+        }
+        
+        if (recv_payload_counter != ++counter) error("payload counter mismatch");
+
+        // Remove IV from payload
+        padded.resize(padded.size() - 8);
 
         payload_out.swap(padded);
     }
@@ -365,6 +398,16 @@ init_secure_channel(int sockfd,
         error("Failed to receive server signature");
     LOG(DEBUG, "Received server signature (%zu bytes)", signature.size());
 
+    // TODO-done: Why verify only at the end, shouldn't we do it sooner?
+    byte_vec signed_data;
+    signed_data.reserve(my_pub_dh_msg.size() + server_pub_dh_msg.size());
+    signed_data.insert(signed_data.end(), my_pub_dh_msg.begin(),     my_pub_dh_msg.end());
+    signed_data.insert(signed_data.end(), server_pub_dh_msg.begin(), server_pub_dh_msg.end());
+
+    if (!verifyRsaSha256(signed_data, signature, server_rsa_pub)) {
+        error("Server signature verification failed");
+    }
+
     // 4) Decode g^b and derive session secrets from DH shared secret K=g^(ab)
     const unsigned char *ps = server_pub_dh_msg.data();
     EVP_PKEY *server_dh_pubkey = d2i_PUBKEY(nullptr, &ps, (long)server_pub_dh_msg.size());
@@ -394,17 +437,6 @@ init_secure_channel(int sockfd,
     EVP_PKEY_free(my_dh_keypair);
     my_dh_keypair = nullptr;
 
-    // 6) Verify server's signature over (g^a || g^b)
-    // TODO: Why verify only at the end, shouldn't we do it sooner?
-    byte_vec signed_data;
-    signed_data.reserve(my_pub_dh_msg.size() + server_pub_dh_msg.size());
-    signed_data.insert(signed_data.end(), my_pub_dh_msg.begin(),     my_pub_dh_msg.end());
-    signed_data.insert(signed_data.end(), server_pub_dh_msg.begin(), server_pub_dh_msg.end());
-
-    if (!verifyRsaSha256(signed_data, signature, server_rsa_pub)) {
-        EVP_PKEY_free(server_dh_pubkey);
-        error("Server signature verification failed");
-    }
     LOG(DEBUG, "Server signature verified successfully");
     LOG(INFO, "Secure channel created succefully");
 

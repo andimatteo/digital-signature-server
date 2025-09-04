@@ -5,6 +5,8 @@
 #include "../common/common.h"
 #include "../common/protocol.h"
 #include "../common/constant.h"
+#include <fstream>
+#include <iomanip>
 using namespace std;
 
 byte_vec k_enc_c2s(32);
@@ -318,7 +320,7 @@ bool cmd_sign(){
     cin >> filename;
     cin.ignore(INT_MAX, '\n');
 
-    
+    // add password to payload (padded to 32 bytes)
     byte_vec payload;
     for (size_t i = 0; i < 32; i++)
     {
@@ -332,17 +334,39 @@ bool cmd_sign(){
         }
     }
 
-    // TODO: Add file to payload (after all the checks)
-    payload.push_back('a');payload.push_back('b');payload.push_back('A');payload.push_back('B');
-    payload.push_back('a');payload.push_back('b');payload.push_back('A');payload.push_back('B');
-    payload.push_back('a');payload.push_back('b');payload.push_back('A');payload.push_back('B');
-    payload.push_back('a');payload.push_back('b');payload.push_back('A');payload.push_back('B');
-    payload.push_back('a');payload.push_back('b');payload.push_back('A');payload.push_back('B');
-    payload.push_back('a');payload.push_back('b');payload.push_back('A');payload.push_back('B');
-    payload.push_back('a');payload.push_back('b');payload.push_back('A');payload.push_back('B');
-    payload.push_back('a');payload.push_back('b');payload.push_back('A');payload.push_back('B');
+    // 1. check if file exists
+    ifstream file(filename, ios::binary);
+    if (!file.is_open())
+    {
+        cout << "Error: Cannot open file '" << filename << "'" << endl;
+        return false;
+    }
 
+    // 2. check file size
+    file.seekg(0, ios::end);
+    size_t file_size = file.tellg();
+    file.seekg(0, ios::beg);
+
+    // NOTE: 10 MB limit
+    const size_t MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file_size > MAX_FILE_SIZE)
+    {
+        LOG(ERROR, "file exceeds maxium file size (10MB)");
+        cout << "Error: File too large (max " << MAX_FILE_SIZE << " bytes)" << endl;
+        file.close();
+        return false;
+    }
+
+    // put file data into bytevec
+    // and then put it into payload
+    byte_vec file_data(file_size);
+    file.read(reinterpret_cast<char*>(file_data.data()), file_size);
+    file.close();
+    payload.insert(payload.end(), file_data.begin(), file_data.end());
+
+    // send password + file
     send_message(payload, sockfd, k_enc_c2s, counter, SIGN_DOC);
+    LOG(DEBUG, "Sent file with file-size %ul", file_size);
 
     byte_vec msg;
     uint8_t type;
