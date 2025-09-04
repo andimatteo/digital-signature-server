@@ -472,17 +472,26 @@ bool cmd_delete(){
 
 CMD wait_for_command()
 {
-    // TODO: change styling
+
+        // Modern CLI Styling
     const string GREEN = "\033[32m";
+    const string CYAN  = "\033[36m";
+    const string BOLD  = "\033[1m";
     const string RESET = "\033[0m";
 
     cout << endl;
-    cout << "Available Commands:\n";
-    cout << GREEN << "1) CreateKeys" << RESET << " - Create a new key pair\n";
-    cout << GREEN << "2) SignDoc" << RESET << " - Sign a document\n";
-    cout << GREEN << "3) GetPublicKey" << RESET << " - Get a user's public key\n";
-    cout << GREEN << "4) DeleteKeys" << RESET << " - Delete your key pair\n";
-    cout << GREEN << "5) Quit" << RESET << " - Exit the application\n";
+    cout << CYAN << BOLD 
+         << "╔════════════════════════════════════════╗\n"
+         << "║           Available Commands           ║\n"
+         << "╚════════════════════════════════════════╝" 
+         << RESET << endl;
+
+    cout << GREEN << "  [1] " << RESET << "  CreateKeys     " << CYAN << "→ Create a new key pair" << RESET << "\n";
+    cout << GREEN << "  [2] " << RESET << "  SignDoc        " << CYAN << "→ Sign a document" << RESET << "\n";
+    cout << GREEN << "  [3] " << RESET << "  GetPublicKey   " << CYAN << "→ Get a user's public key" << RESET << "\n";
+    cout << GREEN << "  [4] " << RESET << "  DeleteKeys     " << CYAN << "→ Delete your key pair" << RESET << "\n";
+    cout << GREEN << "  [5] " << RESET << "  Quit           " << CYAN << "→ Exit the application" << RESET << "\n";
+
     cout << endl;
 
     while (true)
