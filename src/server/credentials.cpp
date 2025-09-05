@@ -21,26 +21,6 @@ map<string, user> allUsers;
 
 #define CREDENTIALS_FILE "/server/credentials.txt"
 
-void
-byte_to_hex(const byte_vec &in, string &out)
-{
-    for (uint8_t byte : in) {
-        char hex[3];
-        snprintf(hex, sizeof(hex), "%02x", static_cast<unsigned char>(byte));
-        out += hex;
-    }
-}
-
-void
-hex_to_byte(const string &in, byte_vec &out)
-{
-    for (size_t i = 0; i < in.length(); i += 2) {
-        string byteString = in.substr(i, 2);
-        uint8_t byte = static_cast<uint8_t>(std::stoul(byteString, nullptr, 16));
-        out.push_back(byte);
-    }
-}
-
 bool
 save_credentials_internal()
 {

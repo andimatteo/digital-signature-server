@@ -13,7 +13,8 @@
 #include <openssl/kdf.h>
 #include "common.h"
 #include "protocol.h"
-
+#include <sstream>
+#include <iomanip>
 using namespace std;
 
 /* logging mechanism */
@@ -426,3 +427,34 @@ validate_password(const string &password)
     
     return true;
 }
+
+/* auxiliary function to print the bytes of a string in hexadecimal format */
+std::string toHexString(const std::string& data) {
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (unsigned char c : data) {
+        ss << std::setw(2) << static_cast<unsigned int>(c);
+    }
+    return ss.str();
+}
+
+void
+byte_to_hex(const byte_vec &in, string &out)
+{
+    for (uint8_t byte : in) {
+        char hex[3];
+        snprintf(hex, sizeof(hex), "%02x", static_cast<unsigned char>(byte));
+        out += hex;
+    }
+}
+
+void
+hex_to_byte(const string &in, byte_vec &out)
+{
+    for (size_t i = 0; i < in.length(); i += 2) {
+        string byteString = in.substr(i, 2);
+        uint8_t byte = static_cast<uint8_t>(std::stoul(byteString, nullptr, 16));
+        out.push_back(byte);
+    }
+}
+

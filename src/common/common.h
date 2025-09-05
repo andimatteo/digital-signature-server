@@ -60,5 +60,8 @@ void aes256gcm_decrypt(const byte_vec &ciphertext,
                   byte_vec &plaintext);
 bool validate_username(const string &username);
 bool validate_password(const string &password);
+string toHexString(const std::string& data);
+void hex_to_byte(const string &in, byte_vec &out);
+void byte_to_hex(const byte_vec &in, string &out);
 
 #endif
