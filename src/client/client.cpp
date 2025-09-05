@@ -374,15 +374,30 @@ bool cmd_sign(){
     {
         return false;
     }
-    string response(msg.begin(), msg.end());
 
     switch (type & 0b11111100)
     {
-        case SUCCESSFUL:
-            // TODO: Print signature properly (or send to file), now is just a blob of bytes
-            cout << "Retrieved signature:" << endl << response << endl;
+        case SUCCESSFUL: {
+            // Convert signature to hexadecimal format
+            std::string hexSignature;
+            byte_to_hex(msg,hexSignature);
+            
+            // Print signature in hex format
+            cout << "Retrieved signature (hex):" << endl << hexSignature << endl;
+            
+            // Save signature to file
+            std::string filePath = filename + ".signature";
+            std::ofstream outFile(filePath);
+            if (outFile.is_open()) {
+                outFile << hexSignature;
+                outFile.close();
+                cout << "Signature saved to: " << filePath << endl;
+            } else {
+                cout << "Error: Could not open file for writing: " << filePath << endl;
+            }
+
             break;
-        
+        }
         default:
             cout << error_text(type) << endl;
             break;
