@@ -102,13 +102,13 @@ void DH_keygen(EVP_PKEY *&keypair, byte_vec &public_msg)
     EVP_PKEY *dh_params = nullptr;
 
     /* parameter generation for FFDHE-2048 */
-    EVP_PKEY_CTX *param_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, nullptr);
+    EVP_PKEY_CTX *param_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr);
     if (!param_ctx) error("Failed to create DH param context");
 
     if (EVP_PKEY_paramgen_init(param_ctx) <= 0)
         error("Failed to initialize DH paramgen");
 
-    if (EVP_PKEY_CTX_set_dh_nid(param_ctx, NID_ffdhe2048) <= 0)
+    if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(param_ctx, NID_X9_62_prime256v1) <= 0)
         error("Failed to set DH params to ffdhe2048");
 
     if (EVP_PKEY_paramgen(param_ctx, &dh_params) <= 0)
