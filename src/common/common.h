@@ -41,7 +41,6 @@ bool verifyRsaSha256(const byte_vec &data, const byte_vec &signature, EVP_PKEY *
 void DH_keygen( EVP_PKEY *&keypair, byte_vec &public_msg);
 bool derive_session_secrets(EVP_PKEY *my_keypair,
                             EVP_PKEY *peer_pubkey,
-                            const byte_vec &salt,            // MUST match on both ends
                             byte_vec &k_enc_c2s,             // AES-GCM key (e.g., 32 bytes)
                             byte_vec &k_enc_s2c,             // AES-GCM key (e.g., 32 bytes)
                             byte_vec &k_mac_c2s,             // HMAC key (e.g., 32 bytes)

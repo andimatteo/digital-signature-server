@@ -59,7 +59,6 @@ init_connection(int conn_fd)
 
     init_secure_channel(sockfd, server_rsa_priv, k_enc_c2s, k_enc_s2c, k_mac_c2s, k_mac_s2c);
 
-    // TODO: is it really ok to always start at 0???
     counter = 0;
 
     /* free private key */
@@ -210,8 +209,6 @@ create_keys(const byte_vec& msg)
         LOG(INFO, "Message too short");
         return ERROR_INVALID_PASSWORD;
     }
-
-    // TODO: Do we want to use this algorithm?
 
     EVP_PKEY* keypair = nullptr;
     EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
@@ -365,8 +362,6 @@ sign_doc(const byte_vec& msg, byte_vec& response)
         return ERROR_INVALID_DOCUMENT;
     }
 
-    // TODO: Do we want to use this algorithm?
-
     EVP_PKEY* privkey = nullptr;
     readPEMPrivateKey(priv_path, &privkey, psw.c_str());
     memzero(psw);
@@ -510,7 +505,6 @@ command_handler()
         return;
     }
 
-    // TODO: remove "& 0x03" to check for errors? Useless probably
     byte_vec empty;
     byte_vec response;
     uint8_t resp_code;

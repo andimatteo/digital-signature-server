@@ -71,9 +71,6 @@ recv_message(int sockfd, byte_vec &out)
 
 static constexpr size_t PAD_BLOCK = 64;
 
-/* TODO: modificare le funzioni che vengono chiamate durante lo scambio di dati da client.cpp e server.cpp */
-/* NOTE: fare testing delle varie richieste (non viene realmente fatto qualcosa) */
-
 /*
  * the communication protocol is the following:
  *  1. send header: (encrypt then authenticate)
@@ -325,23 +322,12 @@ init_secure_channel(int sockfd,
         error("Failed to send server signature");
     }
 
-    /* NOTE: salt (opzionale) */
-    byte_vec salt;
-    // {
-    //     static const char lbl[] = "ffdhe2048";
-    //     salt.resize(sizeof(lbl) - 1 + client_pub_dh_msg.size() + my_pub_dh_msg.size());
-    //     unsigned char *w = salt.data();
-    //     std::memcpy(w, lbl, sizeof(lbl) - 1);                  w += sizeof(lbl) - 1;
-    //     std::memcpy(w, client_pub_dh_msg.data(), client_pub_dh_msg.size()); w += client_pub_dh_msg.size();
-    //     std::memcpy(w, my_pub_dh_msg.data(), my_pub_dh_msg.size());
-    // }
-
     /* get session keys from shared secret using HKDF:
      * 1. AES client to server
      * 2. AES server to client
      * 3. MAC client to server 
      * 4. MAC server to client */
-    if (!derive_session_secrets(my_dh_keypair, client_dh_pubkey, salt, k_enc_c2s, k_enc_s2c, k_mac_c2s, k_mac_s2c))
+    if (!derive_session_secrets(my_dh_keypair, client_dh_pubkey, k_enc_c2s, k_enc_s2c, k_mac_c2s, k_mac_s2c))
     {
         EVP_PKEY_free(my_dh_keypair);
         EVP_PKEY_free(client_dh_pubkey);
@@ -398,7 +384,6 @@ init_secure_channel(int sockfd,
         error("Failed to receive server signature");
     LOG(DEBUG, "Received server signature (%zu bytes)", signature.size());
 
-    // TODO-done: Why verify only at the end, shouldn't we do it sooner?
     byte_vec signed_data;
     signed_data.reserve(my_pub_dh_msg.size() + server_pub_dh_msg.size());
     signed_data.insert(signed_data.end(), my_pub_dh_msg.begin(),     my_pub_dh_msg.end());
@@ -414,18 +399,7 @@ init_secure_channel(int sockfd,
     if (!server_dh_pubkey)
         error("Failed to parse server DH public key");
 
-    // Optional transcript-bound salt (must match server if used)
-    byte_vec salt;
-    // {
-    //     static const char lbl[] = "ffdhe2048";
-    //     salt.resize(sizeof(lbl) - 1 + my_pub_dh_msg.size() + server_pub_dh_msg.size());
-    //     unsigned char *w = salt.data();
-    //     std::memcpy(w, lbl, sizeof(lbl) - 1);                                  w += sizeof(lbl) - 1;
-    //     std::memcpy(w, my_pub_dh_msg.data(),      my_pub_dh_msg.size());        w += my_pub_dh_msg.size();
-    //     std::memcpy(w, server_pub_dh_msg.data(),  server_pub_dh_msg.size());
-    // }
-
-    if (!derive_session_secrets(my_dh_keypair, server_dh_pubkey, salt,
+    if (!derive_session_secrets(my_dh_keypair, server_dh_pubkey,
                                 k_enc_c2s, k_enc_s2c, k_mac_c2s, k_mac_s2c))
     {
         EVP_PKEY_free(my_dh_keypair);
