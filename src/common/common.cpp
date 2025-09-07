@@ -33,9 +33,13 @@ static const char *level_names[] = {
 
 #define COLOR_RESET "\033[0m"
 
+logLevel minimumLevel = DEBUG;
+
 /* logging function */
 void LOG(logLevel level, const char *format, ...)
 {
+    if (level < minimumLevel)
+        return;
     // TODO: fix encoding (strings passed as argument get printed with the wrong encoding)
     // for now we pass a cstring everytime (convert to cstring with string.c_str()
     va_list args;
