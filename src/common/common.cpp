@@ -144,7 +144,6 @@ void DH_keygen(EVP_PKEY *&keypair, byte_vec &public_msg)
 
 bool derive_session_secrets(EVP_PKEY *my_keypair,
                             EVP_PKEY *peer_pubkey,
-                            const byte_vec &salt,            // MUST match on both ends
                             byte_vec &k_enc_c2s,             // AES-GCM key (e.g., 32 bytes)
                             byte_vec &k_enc_s2c,             // AES-GCM key (e.g., 32 bytes)
                             byte_vec &k_mac_c2s,             // HMAC key (e.g., 32 bytes)
@@ -187,9 +186,6 @@ bool derive_session_secrets(EVP_PKEY *my_keypair,
         bool ok = EVP_PKEY_derive_init(kctx) > 0
                && EVP_PKEY_CTX_set_hkdf_mode(kctx, EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND) > 0
                && EVP_PKEY_CTX_set_hkdf_md(kctx, EVP_sha256()) > 0
-               && EVP_PKEY_CTX_set1_hkdf_salt(kctx,
-                      salt.empty() ? nullptr : salt.data(),
-                      static_cast<int>(salt.size())) > 0
                && EVP_PKEY_CTX_set1_hkdf_key(kctx, Z.data(), static_cast<int>(Z.size())) > 0
                && EVP_PKEY_CTX_add1_hkdf_info(
                       kctx,

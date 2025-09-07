@@ -13,7 +13,7 @@ byte_vec k_enc_c2s(32);
 byte_vec k_enc_s2c(32);
 byte_vec k_mac_c2s(32);
 byte_vec k_mac_s2c(32);
-uint64_t counter = 0; // TODO: is it ok to always start the counter at 0?
+uint64_t counter = 0;
 int sockfd;
 
 typedef enum
@@ -501,11 +501,11 @@ CMD wait_for_command()
          << "╚════════════════════════════════════════╝" 
          << RESET << endl;
 
-    cout << GREEN << "  [1] " << RESET << "  CreateKeys     " << CYAN << "→ Create a new key pair" << RESET << "\n";
-    cout << GREEN << "  [2] " << RESET << "  SignDoc        " << CYAN << "→ Sign a document" << RESET << "\n";
-    cout << GREEN << "  [3] " << RESET << "  GetPublicKey   " << CYAN << "→ Get a user's public key" << RESET << "\n";
-    cout << GREEN << "  [4] " << RESET << "  DeleteKeys     " << CYAN << "→ Delete your key pair" << RESET << "\n";
-    cout << GREEN << "  [5] " << RESET << "  Quit           " << CYAN << "→ Exit the application" << RESET << "\n";
+    cout << GREEN << " [1]" << RESET << " CreateKeys   " << CYAN << "→ Create a new key pair" << RESET << "\n";
+    cout << GREEN << " [2]" << RESET << " SignDoc      " << CYAN << "→ Sign a document" << RESET << "\n";
+    cout << GREEN << " [3]" << RESET << " GetPublicKey " << CYAN << "→ Get a user's public key" << RESET << "\n";
+    cout << GREEN << " [4]" << RESET << " DeleteKeys   " << CYAN << "→ Delete your key pair" << RESET << "\n";
+    cout << GREEN << " [5]" << RESET << " Quit         " << CYAN << "→ Exit the application" << RESET << "\n";
 
     cout << endl;
 
