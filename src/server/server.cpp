@@ -689,8 +689,12 @@ start_server(uint16_t port)
     close(server_fd);
 }
 
-int main()
+extern logLevel minimumLevel;
+
+int main(int argc, char * argv[])
 {
+    if (argc > 1)
+        minimumLevel = (logLevel)atoi(argv[1]);
     load_credentials();
     start_server(4242);
     save_credentials();

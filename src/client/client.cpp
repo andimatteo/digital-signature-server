@@ -531,8 +531,14 @@ CMD wait_for_command()
 
 }
 
-int main()
+extern logLevel minimumLevel;
+
+int main(int argc, char * argv[])
 {
+    
+    if (argc > 1)
+        minimumLevel = (logLevel)atoi(argv[1]);
+
     try 
     {
         client_init_connection();
