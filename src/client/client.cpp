@@ -338,8 +338,8 @@ bool cmd_sign(){
     ifstream file(filename, ios::binary);
     if (!file.is_open())
     {
-        cout << "Error: Cannot open file '" << filename << "'" << endl;
-        return false;
+        cout << "Cannot open file '" << filename << "'" << endl;
+        return true;
     }
 
     // 2. check file size
@@ -351,10 +351,9 @@ bool cmd_sign(){
     const size_t MAX_FILE_SIZE = 10 * 1024 * 1024;
     if (file_size > MAX_FILE_SIZE)
     {
-        LOG(ERROR, "file exceeds maxium file size (10MB)");
-        cout << "Error: File too large (max " << MAX_FILE_SIZE << " bytes)" << endl;
+        cout << "File too large (max " << MAX_FILE_SIZE << " bytes)" << endl;
         file.close();
-        return false;
+        return true;
     }
 
     // put file data into bytevec
