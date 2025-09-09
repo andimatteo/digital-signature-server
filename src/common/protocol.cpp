@@ -4,6 +4,7 @@
 #include "header.h"
 using namespace std;
 
+byte_vec iv_enc(4,0);
 
 /* utility function */
 static inline 
@@ -131,7 +132,14 @@ send_secure_record(int sockfd,
 
     /* encrypt header (with padding) */
     byte_vec hdr_ct, hdr_tag;
-    byte_vec iv_zero(12, 0); // Use zero IV since counter is in the plaintext
+    byte_vec iv_zero(12, 0);
+
+    /* init IV AES-256-GCM
+     * first 4 byte nonce from shared secret 
+     * last 8 bytes from counter */
+    memcpy(iv_zero.data(), iv_enc.data(), 4);
+    memcpy(iv_zero.data() + 4, &counter, sizeof(uint64_t));
+
     aes256gcm_encrypt(hdr_padded, key, iv_zero, hdr_ct, hdr_tag);
     
     if (hdr_ct.size() != PAD_BLOCK) error("encrypted header length mismatch");
@@ -190,8 +198,14 @@ recv_secure_record(int sockfd,
     if (!recv_all(sockfd, hdr_ct.data(),  hdr_ct.size()))  return false;
     if (!recv_all(sockfd, hdr_tag.data(), hdr_tag.size())) return false;
 
+    /* init IV AES-256-GCM
+     * first 4 byte nonce from shared secret 
+     * last 8 bytes from counter */
+    byte_vec iv_zero(12, 0);
+    memcpy(iv_zero.data(), iv_enc.data(), 4);
+    memcpy(iv_zero.data() + 4, &++counter, sizeof(uint64_t));
+    
     /* decrypt header */
-    byte_vec iv_zero(12, 0); // Use zero IV since counter is in the plaintext
     byte_vec hdr_padded;
     aes256gcm_decrypt(hdr_ct, key, iv_zero, hdr_tag, hdr_padded);
 
@@ -219,7 +233,7 @@ recv_secure_record(int sockfd,
         recv_counter = (recv_counter << 8) | hdr_padded[i + 0];
     }
     
-    if (recv_counter != ++counter) error("header counter mismatch");
+    if (recv_counter != counter) error("header counter mismatch");
 
     /* if the message has a payload then we receive it */
     if (payload_padded_len > 0) {
@@ -284,8 +298,8 @@ init_secure_channel(int sockfd,
                     EVP_PKEY *server_rsa_priv,
                     byte_vec &k_enc_c2s,
                     byte_vec &k_enc_s2c,
-                    byte_vec &k_mac_c2s,
-                    byte_vec &k_mac_s2c)
+                    byte_vec &iv_enc_c2s,
+                    byte_vec &iv_enc_s2c)
 {
     LOG(INFO, "Initializing secure conversation with client");
 
@@ -328,7 +342,7 @@ init_secure_channel(int sockfd,
      * 2. AES server to client
      * 3. MAC client to server 
      * 4. MAC server to client */
-    if (!derive_session_secrets(my_dh_keypair, client_dh_pubkey, k_enc_c2s, k_enc_s2c, k_mac_c2s, k_mac_s2c))
+    if (!derive_session_secrets(my_dh_keypair, client_dh_pubkey, k_enc_c2s, k_enc_s2c, iv_enc_c2s, iv_enc_s2c))
     {
         EVP_PKEY_free(my_dh_keypair);
         EVP_PKEY_free(client_dh_pubkey);
@@ -360,8 +374,8 @@ init_secure_channel(int sockfd,
                     EVP_PKEY *server_rsa_pub,
                     byte_vec &k_enc_c2s,
                     byte_vec &k_enc_s2c,
-                    byte_vec &k_mac_c2s,
-                    byte_vec &k_mac_s2c)
+                    byte_vec &iv_enc_c2s,
+                    byte_vec &iv_enc_s2c)
 {
     LOG(INFO, "Initializing secure conversation with server");
 
@@ -401,7 +415,7 @@ init_secure_channel(int sockfd,
         error("Failed to parse server DH public key");
 
     if (!derive_session_secrets(my_dh_keypair, server_dh_pubkey,
-                                k_enc_c2s, k_enc_s2c, k_mac_c2s, k_mac_s2c))
+                                k_enc_c2s, k_enc_s2c, iv_enc_c2s, iv_enc_s2c))
     {
         EVP_PKEY_free(my_dh_keypair);
         EVP_PKEY_free(server_dh_pubkey);
