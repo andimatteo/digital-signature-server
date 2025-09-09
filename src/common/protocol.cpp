@@ -70,7 +70,7 @@ recv_message(int sockfd, byte_vec &out)
 }
 
 
-static constexpr size_t PAD_BLOCK = 64;
+static constexpr size_t PAD_BLOCK = 16;
 
 /*
  * the communication protocol is the following:
@@ -99,19 +99,16 @@ send_secure_record(int sockfd,
     /* Calculate padded payload length (including IV) */
     uint64_t payload_padded_len = 0;
     if (!payload.empty()) {
-        size_t payload_with_iv_size = payload.size() + 8; // +8 for IV
-        size_t rem = payload_with_iv_size % PAD_BLOCK;
+        size_t rem = payload.size() % PAD_BLOCK;
         size_t pad = (rem == 0) ? PAD_BLOCK : (PAD_BLOCK - rem);
-        payload_padded_len = payload_with_iv_size + pad;
+        payload_padded_len = payload.size() + pad;
     }
     
-    /* header plaintext: type + length + IV */
+    /* header plaintext: type + length */
     byte_vec hdr_plain;
     
-    // 8 bytes IV (++counter)
-    byte_vec iv_bytes(8, 0);
-    be64(iv_bytes.data(), ++counter);
-    hdr_plain.insert(hdr_plain.end(), iv_bytes.begin(), iv_bytes.end());
+    /* increment counter */
+    ++counter;
 
     // 1 byte type
     hdr_plain.push_back(type_byte);
@@ -122,7 +119,7 @@ send_secure_record(int sockfd,
     hdr_plain.insert(hdr_plain.end(), len_bytes.begin(), len_bytes.end());
     
 
-    /* PKCS#7 padding for header => 64B */
+    /* PKCS#7 padding for header */
     byte_vec hdr_padded = hdr_plain;
     {
         size_t rem = hdr_padded.size() % PAD_BLOCK;
@@ -144,7 +141,7 @@ send_secure_record(int sockfd,
     
     if (hdr_ct.size() != PAD_BLOCK) error("encrypted header length mismatch");
     
-    /* send header and tag (fixed 64 + 16 = 80B) */
+    /* send header and tag (fixed 16 + 16 = 32B) */
     if (!send_all(sockfd, hdr_ct.data(),  hdr_ct.size()))  error("send_all header ct failed");
     if (!send_all(sockfd, hdr_tag.data(), hdr_tag.size())) error("send_all header tag failed");
     
@@ -153,10 +150,8 @@ send_secure_record(int sockfd,
         /* prepare payload with IV */
         byte_vec payload_with_iv = payload;
         
-        /* add IV (++counter) to payload */
-        byte_vec payload_iv(8, 0);
-        be64(payload_iv.data(), ++counter);
-        payload_with_iv.insert(payload_with_iv.end(), payload_iv.begin(), payload_iv.end());
+        /* increment counter */
+        ++counter;
 
         /* pad (payload||IV) */
         byte_vec padded = payload_with_iv;
@@ -168,7 +163,13 @@ send_secure_record(int sockfd,
 
         /* encrypt payload */
         byte_vec ct, tag;
-        byte_vec iv_zero(12, 0); // Zero IV as counter is in data
+        byte_vec iv_zero(12, 0);
+        
+        /* init IV AES-256-GCM
+         * first 4 byte nonce from shared secret 
+         * last 8 bytes from counter */
+        memcpy(iv_zero.data(), iv_enc.data(), 4);
+        memcpy(iv_zero.data() + 4, &counter, sizeof(uint64_t));
         aes256gcm_encrypt(padded, key, iv_zero, ct, tag);
         
         /* send payload and tag */
@@ -215,25 +216,17 @@ recv_secure_record(int sockfd,
     if (hpad == 0 || hpad > hdr_padded.size()) error("bad header padding");
     hdr_padded.resize(hdr_padded.size() - hpad);
 
-    // Header should have 1 byte type, 8 bytes length, 8 bytes IV
-    if (hdr_padded.size() != 17) error("bad header length after unpad");
+    // Header should have 1 byte type, 8 bytes length
+    if (hdr_padded.size() != 9) error("bad header length after unpad");
     
     // Extract the type byte
-    type_out = hdr_padded[8];
+    type_out = hdr_padded[0];
     
     // Extract the length (padded payload length)
     uint64_t payload_padded_len = 0;
     for (int i = 0; i < 8; ++i) {
-        payload_padded_len = (payload_padded_len << 8) | hdr_padded[i + 9];
+        payload_padded_len = (payload_padded_len << 8) | hdr_padded[i + 1];
     }
-    
-    // Extract and verify the counter
-    uint64_t recv_counter = 0;
-    for (int i = 0; i < 8; ++i) {
-        recv_counter = (recv_counter << 8) | hdr_padded[i + 0];
-    }
-    
-    if (recv_counter != counter) error("header counter mismatch");
 
     /* if the message has a payload then we receive it */
     if (payload_padded_len > 0) {
@@ -244,6 +237,9 @@ recv_secure_record(int sockfd,
 
         /* decrypt payload */
         byte_vec iv_zero(12, 0); // Zero IV as counter is in data
+        memcpy(iv_zero.data(), iv_enc.data(), 4);
+        memcpy(iv_zero.data() + 4, &++counter, sizeof(uint64_t));
+        
         byte_vec padded;
         aes256gcm_decrypt(ct, key, iv_zero, tag, padded);
 
@@ -252,20 +248,6 @@ recv_secure_record(int sockfd,
         uint8_t pad = padded.back();
         if (pad == 0 || pad > padded.size()) error("bad payload padding");
         padded.resize(padded.size() - pad);
-
-        // Last 8 bytes should be the IV (counter), extract and verify
-        if (padded.size() < 8) error("payload too small to contain IV");
-        
-        // Extract counter from payload
-        uint64_t recv_payload_counter = 0;
-        for (int i = 0; i < 8; ++i) {
-            recv_payload_counter = (recv_payload_counter << 8) | padded[padded.size() - 8 + i];
-        }
-        
-        if (recv_payload_counter != ++counter) error("payload counter mismatch");
-
-        // Remove IV from payload
-        padded.resize(padded.size() - 8);
 
         payload_out.swap(padded);
     }

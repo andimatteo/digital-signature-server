@@ -385,10 +385,10 @@ bool cmd_sign(){
             cout << "Retrieved signature (hex):" << endl << hexSignature << endl;
             
             // Save signature to file
-            std::string filePath = filename + ".signature";
+            std::string filePath = filename + ".sig";
             std::ofstream outFile(filePath);
             if (outFile.is_open()) {
-                outFile << hexSignature;
+                outFile << string(msg.begin(),msg.end());
                 outFile.close();
                 cout << "Signature saved to: " << filePath << endl;
             } else {
