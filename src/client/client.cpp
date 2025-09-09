@@ -348,10 +348,10 @@ bool cmd_sign(){
     file.seekg(0, ios::beg);
 
     // NOTE: 10 MB limit
-    const size_t MAX_FILE_SIZE = 10 * 1024 * 1024;
+    const size_t MAX_FILE_SIZE = 10 * 1024 * 1024 + 32; // + 32 due to passphrase
     if (file_size > MAX_FILE_SIZE)
     {
-        cout << "File too large (max " << MAX_FILE_SIZE << " bytes)" << endl;
+        cout << "File too large (" << file_size << "/" << MAX_FILE_SIZE << " bytes)" << endl;
         file.close();
         return true;
     }
