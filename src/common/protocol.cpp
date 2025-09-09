@@ -107,6 +107,11 @@ send_secure_record(int sockfd,
     /* header plaintext: type + length + IV */
     byte_vec hdr_plain;
     
+    // 8 bytes IV (++counter)
+    byte_vec iv_bytes(8, 0);
+    be64(iv_bytes.data(), ++counter);
+    hdr_plain.insert(hdr_plain.end(), iv_bytes.begin(), iv_bytes.end());
+
     // 1 byte type
     hdr_plain.push_back(type_byte);
     
@@ -115,10 +120,6 @@ send_secure_record(int sockfd,
     be64(len_bytes.data(), payload_padded_len);
     hdr_plain.insert(hdr_plain.end(), len_bytes.begin(), len_bytes.end());
     
-    // 8 bytes IV (++counter)
-    byte_vec iv_bytes(8, 0);
-    be64(iv_bytes.data(), ++counter);
-    hdr_plain.insert(hdr_plain.end(), iv_bytes.begin(), iv_bytes.end());
 
     /* PKCS#7 padding for header => 64B */
     byte_vec hdr_padded = hdr_plain;
@@ -204,18 +205,18 @@ recv_secure_record(int sockfd,
     if (hdr_padded.size() != 17) error("bad header length after unpad");
     
     // Extract the type byte
-    type_out = hdr_padded[0];
+    type_out = hdr_padded[8];
     
     // Extract the length (padded payload length)
     uint64_t payload_padded_len = 0;
     for (int i = 0; i < 8; ++i) {
-        payload_padded_len = (payload_padded_len << 8) | hdr_padded[i + 1];
+        payload_padded_len = (payload_padded_len << 8) | hdr_padded[i + 9];
     }
     
     // Extract and verify the counter
     uint64_t recv_counter = 0;
     for (int i = 0; i < 8; ++i) {
-        recv_counter = (recv_counter << 8) | hdr_padded[i + 9];
+        recv_counter = (recv_counter << 8) | hdr_padded[i + 0];
     }
     
     if (recv_counter != ++counter) error("header counter mismatch");
