@@ -43,10 +43,10 @@ bool derive_session_secrets(EVP_PKEY *my_keypair,
                             EVP_PKEY *peer_pubkey,
                             byte_vec &k_enc_c2s,             // AES-GCM key (e.g., 32 bytes)
                             byte_vec &k_enc_s2c,             // AES-GCM key (e.g., 32 bytes)
-                            byte_vec &k_mac_c2s,             // HMAC key (e.g., 32 bytes)
-                            byte_vec &k_mac_s2c,             // HMAC key (e.g., 32 bytes)
+                            byte_vec &iv,             // HMAC key (e.g., 32 bytes)
+                            byte_vec &iv_s2c,             // HMAC key (e.g., 32 bytes)
                             size_t aes_key_len = 32,         // 16 for AES-128-GCM, 32 for AES-256-GCM
-                            size_t mac_key_len = 32);         // 32 for HMAC-SHA256
+                            size_t mac_key_len = 4);
 void aes256gcm_encrypt(const byte_vec &plaintext,
                   const byte_vec &key,
                   byte_vec &iv,

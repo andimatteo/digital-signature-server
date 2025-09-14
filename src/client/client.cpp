@@ -6,13 +6,14 @@
 #include "../common/protocol.h"
 #include "../common/constant.h"
 #include <fstream>
+#include <cstring>
 #include <iomanip>
 using namespace std;
 
 byte_vec k_enc_c2s(32);
 byte_vec k_enc_s2c(32);
-byte_vec k_mac_c2s(32);
-byte_vec k_mac_s2c(32);
+byte_vec iv(4);
+byte_vec iv_s2c(4);
 uint64_t counter = 0;
 int sockfd;
 
@@ -93,9 +94,12 @@ void client_init_connection()
                         server_rsa_pub,
                         k_enc_c2s,
                         k_enc_s2c,
-                        k_mac_c2s,
-                        k_mac_s2c
+                        iv,
+                        iv_s2c
                         );
+    counter = 0;
+    memcpy((void *)&counter,(void*)iv.data(), 4);
+
 }
 
 void close_connection()
@@ -108,8 +112,8 @@ void close_connection()
 
     memzero(k_enc_c2s);
     memzero(k_enc_s2c);
-    memzero(k_mac_c2s);
-    memzero(k_mac_s2c);
+    memzero(iv);
+    memzero(iv_s2c);
 }
 
 bool cmd_change_password()

@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <filesystem>
 #include <fstream>
+#include <cstring>
 #include "../common/common.h"
 #include "../common/protocol.h"
 #include "../common/constant.h"
@@ -13,8 +14,8 @@ using namespace std;
 
 thread_local byte_vec k_enc_c2s(32);
 thread_local byte_vec k_enc_s2c(32);
-thread_local byte_vec k_mac_c2s(32);
-thread_local byte_vec k_mac_s2c(32);
+thread_local byte_vec iv(4);
+thread_local byte_vec iv_s2c(4);
 thread_local int sockfd;
 thread_local uint64_t counter;
 
@@ -39,9 +40,10 @@ close_connection()
 
     memzero(k_enc_c2s);
     memzero(k_enc_s2c);
-    memzero(k_mac_c2s);
-    memzero(k_mac_s2c);
+    memzero(iv);
+    memzero(iv_s2c);
     counter = 0;
+
 }
 
 static void
@@ -57,9 +59,10 @@ init_connection(int conn_fd)
     EVP_PKEY *server_rsa_priv = nullptr;
     readPEMPrivateKey(path_to_private_key, &server_rsa_priv);
 
-    init_secure_channel(sockfd, server_rsa_priv, k_enc_c2s, k_enc_s2c, k_mac_c2s, k_mac_s2c);
+    init_secure_channel(sockfd, server_rsa_priv, k_enc_c2s, k_enc_s2c, iv, iv_s2c);
 
     counter = 0;
+    memcpy((void *)&counter,(void*)iv.data(), 4);
 
     /* free private key */
     EVP_PKEY_free(server_rsa_priv);

@@ -139,15 +139,12 @@ void DH_keygen(EVP_PKEY *&keypair, byte_vec &public_msg)
     OPENSSL_free(pubkey_buf);
 }
 
-// assumes: using byte_vec = std::vector<unsigned char>;
-// requires: <openssl/evp.h>, <openssl/crypto.h>, <cstring>, <vector>
-
 bool derive_session_secrets(EVP_PKEY *my_keypair,
                             EVP_PKEY *peer_pubkey,
                             byte_vec &k_enc_c2s,             // AES-GCM key (e.g., 32 bytes)
                             byte_vec &k_enc_s2c,             // AES-GCM key (e.g., 32 bytes)
-                            byte_vec &k_mac_c2s,             // HMAC key (e.g., 32 bytes)
-                            byte_vec &k_mac_s2c,             // HMAC key (e.g., 32 bytes)
+                            byte_vec &iv,
+                            byte_vec &iv_c2s,
                             size_t aes_key_len,         // 16 for AES-128-GCM, 32 for AES-256-GCM
                             size_t mac_key_len)         // 32 for HMAC-SHA256
 {
@@ -207,8 +204,8 @@ bool derive_session_secrets(EVP_PKEY *my_keypair,
      * 4. MAC server to client */
     hkdf_expand("ffdhe2048 aes-gcm key c2s", aes_key_len, k_enc_c2s);
     hkdf_expand("ffdhe2048 aes-gcm key s2c", aes_key_len, k_enc_s2c);
-    hkdf_expand("ffdhe2048 hmac key c2s",    mac_key_len, k_mac_c2s);
-    hkdf_expand("ffdhe2048 hmac key s2c",    mac_key_len, k_mac_s2c);
+    hkdf_expand("iv", mac_key_len, iv);
+    hkdf_expand("iv", mac_key_len, iv_c2s);
 
     /* zero the shared secret */
     OPENSSL_cleanse(Z.data(), Z.size());

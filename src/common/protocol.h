@@ -10,8 +10,8 @@ bool init_secure_channel(int sockfd,
                               EVP_PKEY *server_rsa_priv,
                               byte_vec &k_enc_c2s,
                               byte_vec &k_enc_s2c,
-                              byte_vec &k_mac_c2s,
-                              byte_vec &k_mac_s2c );
+                              byte_vec &iv,
+                              byte_vec &iv_s2c );
 
 
 bool recv_message(int sockfd, byte_vec &out);
